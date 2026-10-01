@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f172a">
+<title>Semakan Markah Pelajar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  #searchCard,
+  #printBtn,
+  .text-center > .flex {
+    display: none !important;
+  }
+
+  main {
+    display: block !important;
+    min-height: auto !important;
+    padding: 0 !important;
+  }
+
+  main > div {
+    max-width: none !important;
+  }
+
+  #resultCard {
+    display: block !important;
+    margin: 0 !important;
+  }
+
+  #resultCard > div {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .bg-slate-900 {
+    background: white !important;
+    color: black !important;
+  }
+
+  .bg-slate-900 * {
+    color: black !important;
+  }
+
+  .text-slate-300,
+  .text-slate-400 {
+    color: #475569 !important;
+  }
+
+  #pbList {
+    break-inside: avoid;
+  }
+}
+</style>
+
+
+<style>
+.print-slip-header,.print-student-details,.print-assessment-table,.print-summary-table,.print-signature-area,.print-footer-note{display:none}
+@media print {
+  @page{size:A4;margin:12mm 14mm}
+  body{background:#fff!important;color:#111827!important;font-family:Arial,Helvetica,sans-serif!important}
+  #searchCard,#printBtn,.screen-result-header,#pbList{display:none!important}
+  main{display:block!important;min-height:auto!important;padding:0!important}
+  main>div{max-width:none!important}
+  #resultCard{display:block!important;margin:0!important}
+  #resultCard>div{box-shadow:none!important;border:0!important;border-radius:0!important}
+  #resultCard>div:last-child{padding:0!important}
+  .print-slip-header{display:block!important;text-align:center;border-bottom:2px solid #111827;padding-bottom:9px;margin-bottom:12px}
+  .print-college{font-size:16pt;font-weight:700;letter-spacing:.5px}
+  .print-ministry{margin-top:2px;font-size:9pt;font-weight:600}
+  .print-title{margin-top:12px;font-size:14pt;font-weight:700;letter-spacing:.8px}
+  .print-subtitle{margin-top:3px;font-size:8pt;font-weight:600}
+  .print-session{margin-top:7px;font-size:9pt;font-weight:600}
+  .print-student-details{display:block!important;margin-bottom:15px}
+  .print-student-details table,.print-assessment-table table,.print-summary-table table{width:100%;border-collapse:collapse}
+  .print-student-details td{border:1px solid #374151;padding:6px 8px;font-size:9pt}
+  .print-student-details td.label{width:18%;background:#f3f4f6;font-weight:700}
+  .print-assessment-table{display:block!important;margin-top:7px}
+  .print-assessment-table th,.print-assessment-table td{border:1px solid #374151;padding:7px 8px;font-size:9pt}
+  .print-assessment-table th{background:#e5e7eb;text-align:center;font-weight:700}
+  .print-assessment-table td:not(:nth-child(2)){text-align:center}
+  .print-summary-table{display:block!important;margin-top:14px}
+  .print-summary-table td{border:1px solid #374151;padding:7px 8px;font-size:9pt}
+  .print-summary-table td.label{font-weight:700}
+  .print-summary-table td:last-child{width:25%;text-align:center;font-size:11pt;font-weight:700}
+  .print-signature-area{display:grid!important;grid-template-columns:1fr 1fr;gap:35mm;margin-top:35mm;font-size:8pt}
+  .signature-line{height:12mm;border-bottom:1px solid #111827}
+  .signature-label{font-weight:600;margin-top:4px}
+  .print-footer-note{display:block!important;margin-top:14mm;padding-top:5px;border-top:1px solid #9ca3af;text-align:center;font-size:7.5pt;color:#4b5563}
+}
+</style>
+
+</head>
+
+<body class="min-h-screen bg-slate-100 text-slate-800">
+<main class="min-h-screen flex items-center justify-center p-4">
+<div class="w-full max-w-md">
+
+  <!-- Header -->
+  <section class="mb-5 text-center">
+    <div class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg">
+      <span class="text-lg font-bold">K</span>
+    </div>
+    <h1 class="text-2xl font-bold text-slate-900">Semakan Markah</h1>
+    <p class="mt-1 text-sm text-slate-500">Penilaian Berterusan & UPS KIMIA</p>
+  </section>
+
+  <!-- Search -->
+  <section id="searchCard" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+
+    <div class="mb-5 rounded-xl bg-slate-50 p-3 text-sm">
+      <div class="flex justify-between gap-3">
+        <span class="text-slate-500">Sesi semasa</span>
+        <b id="sessionLabel">Memuatkan...</b>
+      </div>
+      <div class="mt-1 flex justify-between gap-3">
+        <span class="text-slate-500">Semester</span>
+        <b id="semesterLabel">—</b>
+      </div>
+    </div>
+
+    <form id="searchForm" class="space-y-4">
+      <div>
+        <label for="matricInput" class="mb-1.5 block text-sm font-medium">
+          No. Matrik
+        </label>
+        <input
+          id="matricInput"
+          required
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          class="w-full rounded-xl border border-slate-300 px-4 py-3.5 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
+          placeholder="Contoh: MS261110XXXX"
+        >
+      </div>
+
+      <div>
+        <label for="classInput" class="mb-1.5 block text-sm font-medium">
+          Nama Kelas
+        </label>
+        <input
+          id="classInput"
+          required
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          class="w-full rounded-xl border border-slate-300 px-4 py-3.5 outline-none transition focus:border-slate-500 focus:ring-4 focus:ring-slate-100"
+          placeholder="Contoh: H1P2"
+        >
+      </div>
+
+      <button
+        id="searchBtn"
+        type="submit"
+        class="w-full rounded-xl bg-slate-900 px-4 py-3.5 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        Semak Markah
+      </button>
+    </form>
+
+    <div id="status" class="mt-4 hidden rounded-xl p-3 text-sm"></div>
+  </section>
+
+  <!-- Result -->
+  <section id="resultCard" class="mt-5 hidden">
+    <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+
+      <div class="screen-result-header bg-slate-900 px-5 py-5 text-white">
+        <p class="text-xs uppercase tracking-wider text-slate-300">Keputusan Markah</p>
+        <h2 id="resultMatric" class="mt-1 text-xl font-bold">—</h2>
+        <p id="resultName" class="mt-1 text-sm text-slate-300">—</p>
+        <p id="resultClass" class="text-sm text-slate-300">—</p>
+        <p class="mt-2 text-xs text-slate-400">
+          <span id="resultProgram">—</span> · <span id="resultSession">—</span> · <span id="resultSemester">—</span>
+        </p>
+      </div>
+
+      <div class="print-slip-header">
+        <div class="print-college">UNIT KIMIA</div>
+        <div class="print-ministry">KOLEJ MATRIKULASI MELAKA</div>
+        <div class="print-title">SLIP KEPUTUSAN MARKAH</div>
+        <div class="print-subtitle">PENILAIAN BERTERUSAN (PB) DAN UJIAN PENILAIAN SEMESTER (UPS) KIMIA</div>
+        <div class="print-session">SESI AKADEMIK <span id="printSession">—</span> &nbsp; | &nbsp; <span id="printSemester">—</span></div>
+      </div>
+
+      <div class="p-5">
+
+        <div class="print-student-details">
+          <table>
+            <tr>
+              <td class="label">Nama Pelajar</td><td id="printStudentName">—</td>
+              <td class="label">No. Matrik</td><td id="printMatric">—</td>
+            </tr>
+            <tr>
+              <td class="label">Program</td><td id="printProgram">—</td>
+              <td class="label">Kelas</td><td id="printClass">—</td>
+            </tr>
+            <tr>
+              <td class="label">Sesi Akademik</td><td id="printAcademicYear">—</td>
+              <td class="label">Semester</td><td id="printSem">—</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- PB -->
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold">Penilaian Berterusan</h3>
+            <p class="text-xs text-slate-500">Komponen PB</p>
+          </div>
+          <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold">
+            40%
+          </span>
+        </div>
+
+        <div class="print-assessment-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Bil.</th><th>Komponen Penilaian</th><th>Markah</th><th>Pemberat</th><th>Markah Diperoleh</th>
+              </tr>
+            </thead>
+            <tbody id="printPbRows"></tbody>
+          </table>
+        </div>
+
+        <div id="pbList" class="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden"></div>
+
+        <div class="mt-3 flex items-center justify-between rounded-xl bg-slate-900 px-4 py-4 text-white">
+          <div>
+            <p class="text-sm text-slate-300">Jumlah PB</p>
+            <p class="text-xs text-slate-400">daripada 40</p>
+          </div>
+          <p id="pbTotal" class="text-2xl font-bold">—</p>
+        </div>
+
+        <!-- UPS -->
+        <div class="my-6 h-px bg-slate-200"></div>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-bold">UPS</h3>
+            <p class="text-xs text-slate-500">daripada 20</p>
+          </div>
+          <p id="upsTotal" class="text-2xl font-bold">—</p>
+        </div>
+
+        <div class="print-summary-table">
+          <table>
+            <tr><td class="label">JUMLAH PENILAIAN BERTERUSAN (PB)</td><td id="printPbTotal">—</td></tr>
+            <tr><td class="label">UJIAN PENILAIAN SEMESTER (UPS)</td><td id="printUpsTotal">—</td></tr>
+          </table>
+        </div>
+
+        <div class="print-signature-area">
+          <div>
+            <div class="signature-line"></div>
+            <p class="signature-label">Pensyarah / Pegawai Bertanggungjawab</p>
+          </div>
+          <div>
+            <div class="signature-line"></div>
+            <p class="signature-label">Tarikh</p>
+          </div>
+        </div>
+
+        <div class="print-footer-note">
+          Slip ini dijana secara elektronik daripada sistem rekod penilaian.
+          Sebarang pindaan tertakluk kepada rekod rasmi institusi.
+        </div>
+
+        <button
+          id="printBtn"
+          type="button"
+          class="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-800"
+        >
+          Cetak Markah
+        </button>
+      </div>
+    </div>
+
+    <p class="mt-4 text-center text-xs text-slate-400">
+      Dokumen ini menunjukkan markah PB dan UPS bagi sesi semasa.
+    </p>
+  </section>
+
+</div>
+</main>
+
+<script>
+/* ============================================================
+   SUPABASE CONNECTION
+   ============================================================ */
+
+const SUPABASE_URL =
+  'https://whgkcuudnvuuhcldqyjf.supabase.co';
+
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoZ2tjdXVkbnZ1dWhjbGRxeWpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxOTMzMDEsImV4cCI6MjA3NTc2OTMwMX0.UxQZAph8XZuqX2QKflKCseTTYR2kmO0uHZvvFou5hG4';
+
+const { createClient } = supabase;
+
+const db = createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+
+const norm = value =>
+  String(value ?? '').trim();
+
+const upper = value =>
+  norm(value).toUpperCase();
+
+const esc = value =>
+  String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+
+
+function showStatus(message, type = 'error') {
+
+  const el = $('status');
+
+  el.textContent = message;
+
+  el.className =
+    'mt-4 rounded-xl p-3 text-sm ' +
+    (type === 'success'
+      ? 'bg-green-50 text-green-700'
+      : 'bg-red-50 text-red-700');
+
+  el.classList.remove('hidden');
+}
+
+
+function hideStatus() {
+  $('status').classList.add('hidden');
+}
+
+
+/* ============================================================
+   LOAD CURRENT SYSTEM SETTINGS
+   ============================================================ */
+
+async function loadCurrentSession() {
+
+  const result = await db
+    .from('system_settings')
+    .select('current_academic_year,current_semester')
+    .eq('id', 1)
+    .single();
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  $('sessionLabel').textContent =
+    result.data.current_academic_year;
+
+  $('semesterLabel').textContent =
+    'Semester ' + result.data.current_semester;
+
+  return result.data;
+}
+
+
+/* ============================================================
+   CALL SECURE RPC
+   ============================================================ */
+
+async function getStudentMarks(matricNo, className) {
+
+  const { data, error } = await db.rpc(
+    'get_student_marks',
+    {
+      p_matric_no: matricNo,
+      p_class_name: className
+    }
+  );
+
+  if (error) {
+    console.error('RPC error:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+
+/* ============================================================
+   RENDER RESULT
+   ============================================================ */
+
+function renderResult(result) {
+
+  /*
+   * RPC may return the JSON object directly.
+   * Handle a one-row array as well for compatibility.
+   */
+  if (Array.isArray(result)) {
+    result = result[0];
+  }
+
+  if (!result) {
+    throw new Error('Tiada data markah diterima.');
+  }
+
+  $('resultMatric').textContent =
+    result.matric_no || '—';
+
+  /*
+   * The current RPC does not return student_name.
+   * Keep this field hidden unless a future RPC version provides it.
+   */
+  if (result.student_name) {
+    $('resultName').textContent =
+      result.student_name;
+    $('resultName').classList.remove('hidden');
+  } else {
+    $('resultName').textContent = '';
+    $('resultName').classList.add('hidden');
+  }
+
+  $('resultClass').textContent =
+    'Kelas: ' + (result.class_name || '—');
+
+  $('printSession').textContent = result.academic_year || '—';
+  $('printSemester').textContent = 'Semester ' + (result.semester || '—');
+  $('printStudentName').textContent = result.student_name || '—';
+  $('printMatric').textContent = result.matric_no || '—';
+  $('printProgram').textContent = result.program || '—';
+  $('printClass').textContent = result.class_name || '—';
+  $('printAcademicYear').textContent = result.academic_year || '—';
+  $('printSem').textContent = result.semester || '—';
+
+  $('resultProgram').textContent =
+    result.program || '—';
+
+  $('resultSession').textContent =
+    result.academic_year || '—';
+
+  $('resultSemester').textContent =
+    'Semester ' + (result.semester || '—');
+
+
+  /* ------------------------------------------------------------
+     PB COMPONENTS
+     ------------------------------------------------------------ */
+
+  const components =
+    Array.isArray(result.pb_components)
+      ? result.pb_components
+      : [];
+
+  $('printPbRows').innerHTML = components.map((component, index) => {
+    const raw = component.raw_mark == null ? '—' : Number(component.raw_mark).toString();
+    const full = component.full_marks == null ? '—' : Number(component.full_marks).toString();
+    const weight = component.weightage == null ? '—' : Number(component.weightage).toFixed(1);
+    const weighted = component.weighted_mark == null ? '—' : Number(component.weighted_mark).toFixed(1);
+
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${esc(component.name || component.code)}</td>
+        <td>${raw} / ${full}</td>
+        <td>${weight}</td>
+        <td>${weighted}</td>
+      </tr>`;
+  }).join('');
+
+  $('printPbTotal').textContent =
+    Number(result.pb_total || 0).toFixed(1) + ' / 40.0';
+
+  $('printUpsTotal').textContent =
+    Number(result.ups_total || 0).toFixed(1) + ' / 20.0';
+
+  if (!components.length) {
+
+    $('pbList').innerHTML =
+      '<div class="px-4 py-4 text-sm text-slate-500">' +
+      'Tiada markah PB direkodkan.' +
+      '</div>';
+
+  } else {
+
+    $('pbList').innerHTML =
+      components.map(component => {
+
+        const mark =
+          component.weighted_mark == null
+            ? '—'
+            : Number(component.weighted_mark).toFixed(1);
+
+        const raw =
+          component.raw_mark == null
+            ? '—'
+            : Number(component.raw_mark);
+
+        return `
+          <div class="flex items-center justify-between gap-3 px-4 py-3.5">
+            <div class="min-w-0">
+              <p class="font-medium truncate">
+                ${esc(component.name || component.code)}
+              </p>
+              <p class="text-xs text-slate-400">
+                ${esc(component.code || '')}
+                · ${raw}/${Number(component.full_marks)}
+              </p>
+            </div>
+            <div class="shrink-0 text-right">
+              <p class="font-bold">
+                ${mark}
+              </p>
+              <p class="text-xs text-slate-400">
+                / ${Number(component.weightage).toFixed(1)}
+              </p>
+            </div>
+          </div>
+        `;
+
+      }).join('');
+  }
+
+
+  /* ------------------------------------------------------------
+     TOTALS
+     ------------------------------------------------------------ */
+
+  $('pbTotal').textContent =
+    Number(result.pb_total || 0).toFixed(1);
+
+  $('upsTotal').textContent =
+    Number(result.ups_total || 0).toFixed(1);
+
+
+  /* ------------------------------------------------------------
+     SWITCH VIEW
+     ------------------------------------------------------------ */
+
+  $('searchCard').classList.add('hidden');
+
+  $('resultCard').classList.remove('hidden');
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
+
+/* ============================================================
+   SEARCH FORM
+   ============================================================ */
+
+$('searchForm').addEventListener(
+  'submit',
+  async event => {
+
+    event.preventDefault();
+
+    hideStatus();
+
+    const matricNo =
+      upper($('matricInput').value);
+
+    const className =
+      upper($('classInput').value);
+
+    if (!matricNo || !className) {
+      showStatus(
+        'Sila masukkan No. Matrik dan Nama Kelas.'
+      );
+      return;
+    }
+
+    const button = $('searchBtn');
+
+    button.disabled = true;
+
+    button.textContent =
+      'Sedang menyemak...';
+
+    try {
+
+      const result =
+        await getStudentMarks(
+          matricNo,
+          className
+        );
+
+      renderResult(result);
+
+    } catch (error) {
+
+      console.error(error);
+
+      const message =
+        String(error?.message || '');
+
+      if (
+        message.toLowerCase().includes('student not found')
+      ) {
+
+        showStatus(
+          'No. Matrik atau Nama Kelas tidak sepadan dengan rekod sesi semasa.'
+        );
+
+      } else if (
+        message.toLowerCase().includes('student marks not found')
+      ) {
+
+        showStatus(
+          'Rekod pelajar dijumpai tetapi markah belum tersedia.'
+        );
+
+      } else if (
+        message.toLowerCase().includes('score record not found')
+      ) {
+
+        showStatus(
+          'Rekod markah bagi kelas ini belum tersedia.'
+        );
+
+      } else {
+
+        showStatus(
+          'Tidak dapat memuatkan markah. Sila cuba lagi.'
+        );
+      }
+
+    } finally {
+
+      button.disabled = false;
+
+      button.textContent =
+        'Semak Markah';
+    }
+  }
+);
+
+
+/* ============================================================
+   PRINT MARKS
+   ============================================================ */
+
+$('printBtn').addEventListener(
+  'click',
+  () => {
+    window.print();
+  }
+);
+
+
+/* ============================================================
+   INITIALISE
+   ============================================================ */
+
+(async function init() {
+
+  try {
+
+    await loadCurrentSession();
+
+  } catch (error) {
+
+    console.error(
+      'System settings error:',
+      error
+    );
+
+    $('sessionLabel').textContent =
+      'Tidak tersedia';
+
+    $('semesterLabel').textContent =
+      '—';
+
+    showStatus(
+      'Tidak dapat mendapatkan sesi semasa. Sila cuba lagi kemudian.'
+    );
+  }
+
+})();
+</script>
+
+</body>
+</html>
